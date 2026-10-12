@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 ### Model weights
 
-The trained weights file `resnext101_leaves.pth` (~350 MB) is **not included** in this repository because it exceeds GitHub's file size limit. Place it in the project root, next to `streamlit_app.py`.
+The trained weights file `resnext101_leaves.pth` (~350 MB) is stored with **Git LFS**. Install Git LFS before cloning (`git lfs install`) so the real file is downloaded instead of a small pointer file.
 
 ## Run the app
 
