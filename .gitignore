@@ -18,3 +18,6 @@ data/
 .idea/
 .claude/
 .DS_Store
+
+# Local copy of the weights (hosted on Hugging Face Hub)
+models/*.pth

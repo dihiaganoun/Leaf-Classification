@@ -6,6 +6,8 @@ import torch.nn as nn
 from PIL import Image
 
 from leaf_classifier import CLASS_NAMES, IMAGE_SIZE, NUM_CLASSES, load_model, predict, preprocess
+from leaf_classifier import model as model_module
+from leaf_classifier.config import HF_REPO_ID, WEIGHTS_FILENAME
 from leaf_classifier.data import stratified_split
 
 
@@ -45,8 +47,29 @@ def test_class_config_is_consistent():
 
 
 def test_load_model_missing_file(tmp_path):
-    with pytest.raises(FileNotFoundError, match="git lfs pull"):
+    with pytest.raises(FileNotFoundError, match="not found"):
         load_model(tmp_path / "missing.pth")
+
+
+def test_resolve_weights_prefers_local_copy(tmp_path, monkeypatch):
+    local = tmp_path / "weights.pth"
+    local.write_bytes(b"x")
+    monkeypatch.setattr(model_module, "DEFAULT_MODEL_PATH", local)
+    monkeypatch.setattr(model_module, "hf_hub_download", lambda **_: pytest.fail("should not download"))
+    assert model_module.resolve_weights() == local
+
+
+def test_resolve_weights_downloads_when_no_local_copy(tmp_path, monkeypatch):
+    calls = {}
+
+    def fake_download(repo_id, filename):
+        calls.update(repo_id=repo_id, filename=filename)
+        return str(tmp_path / filename)
+
+    monkeypatch.setattr(model_module, "DEFAULT_MODEL_PATH", tmp_path / "absent.pth")
+    monkeypatch.setattr(model_module, "hf_hub_download", fake_download)
+    assert model_module.resolve_weights() == tmp_path / WEIGHTS_FILENAME
+    assert calls == {"repo_id": HF_REPO_ID, "filename": WEIGHTS_FILENAME}
 
 
 def test_load_model_detects_lfs_pointer(tmp_path):

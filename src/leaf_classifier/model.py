@@ -5,16 +5,19 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from huggingface_hub import hf_hub_download
 from PIL import Image
 from torchvision import models, transforms
 
 from leaf_classifier.config import (
     CLASS_NAMES,
     DEFAULT_MODEL_PATH,
+    HF_REPO_ID,
     IMAGE_SIZE,
     IMAGENET_MEAN,
     IMAGENET_STD,
     NUM_CLASSES,
+    WEIGHTS_FILENAME,
 )
 
 _LFS_POINTER_PREFIX = b"version https://git-lfs"
@@ -40,21 +43,31 @@ def build_model(num_classes: int = NUM_CLASSES) -> nn.Module:
 
 def _check_weights_file(path: Path) -> None:
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Model weights not found at '{path}'. "
-            "Run 'git lfs pull' or set the LEAF_MODEL_PATH environment variable."
-        )
+        raise FileNotFoundError(f"Model weights not found at '{path}'.")
     with path.open("rb") as f:
         if f.read(len(_LFS_POINTER_PREFIX)) == _LFS_POINTER_PREFIX:
             raise RuntimeError(
                 f"'{path}' is a Git LFS pointer, not the real weights. "
-                "Install Git LFS and run 'git lfs pull'."
+                "Delete it to download the weights from Hugging Face Hub."
             )
+
+
+def resolve_weights(path: str | Path | None = None) -> Path:
+    """Return a local path to the weights.
+
+    An explicit path must exist. Otherwise the local copy in models/ is used if
+    present, else the weights are downloaded once from Hugging Face Hub and cached.
+    """
+    if path is not None:
+        return Path(path)
+    if DEFAULT_MODEL_PATH.is_file():
+        return DEFAULT_MODEL_PATH
+    return Path(hf_hub_download(repo_id=HF_REPO_ID, filename=WEIGHTS_FILENAME))
 
 
 def load_model(path: str | Path | None = None, device: torch.device | None = None) -> nn.Module:
     """Load the fine-tuned weights and return the model in eval mode."""
-    path = Path(path) if path is not None else DEFAULT_MODEL_PATH
+    path = resolve_weights(path)
     device = device or get_device()
     _check_weights_file(path)
 

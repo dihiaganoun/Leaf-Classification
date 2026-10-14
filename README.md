@@ -4,10 +4,14 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.9-ee4c2c)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://leaf-margin-classifier.streamlit.app)
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20Model-Hub-yellow)](https://huggingface.co/dganoun/leaf-classifier-resnext101)
 
 Classifies a leaf photo by the shape of its margin: **dentée** (toothed edge) or **lisse** (smooth edge).
 
 A **ResNeXt-101 (32×8d)** pretrained on ImageNet is fine-tuned on ~6,500 leaf images, then served through a **Streamlit** web app.
+
+**▶ [Try the live demo](https://leaf-margin-classifier.streamlit.app)**, no installation needed.
 
 ![App screenshot](docs/screenshot.png)
 
@@ -33,7 +37,7 @@ These numbers come from `notebooks/training.ipynb` (Colab, GPU).
 
 ### Local check of the published weights
 
-`scripts/evaluate.py` re-runs the model shipped in this repo on a stratified sample of the test split (150 images per class, CPU):
+`scripts/evaluate.py` re-runs the published weights on a stratified sample of the test split (150 images per class, CPU):
 
 | Sample | Accuracy | Macro F1 | Errors |
 |--------|----------|----------|--------|
@@ -58,8 +62,6 @@ Leaf-Classification/
 ├── tests/                    # Unit tests (no weights needed)
 ├── notebooks/
 │   └── training.ipynb        # Training and full test evaluation
-├── models/
-│   └── resnext101_leaves.pth # Trained weights (Git LFS, ~350 MB)
 ├── docs/                     # Screenshot, metrics, confusion matrix
 ├── Dockerfile
 ├── requirements.txt          # Pinned runtime dependencies
@@ -68,17 +70,14 @@ Leaf-Classification/
 
 ## Getting started
 
-### 1. Clone (with the model weights)
-
-The weights are stored with [Git LFS](https://git-lfs.com). Install it once, then clone:
+### 1. Clone
 
 ```bash
-git lfs install
 git clone https://github.com/dihiaganoun/Leaf-Classification.git
 cd Leaf-Classification
 ```
 
-If you cloned before installing Git LFS, run `git lfs pull` to download the real weights. The app shows a clear error if it finds the small LFS pointer file instead.
+The trained weights (~350 MB) are hosted on [Hugging Face Hub](https://huggingface.co/dganoun/leaf-classifier-resnext101). They are downloaded automatically the first time the model is loaded, then cached.
 
 ### 2. Install
 
@@ -98,7 +97,7 @@ streamlit run app/streamlit_app.py
 
 Then open http://localhost:8501.
 
-To use weights stored elsewhere, set `LEAF_MODEL_PATH=/path/to/weights.pth`.
+To use a local copy of the weights instead, put it in `models/resnext101_leaves.pth` or set `LEAF_MODEL_PATH=/path/to/weights.pth`.
 
 ### Docker
 
@@ -107,7 +106,7 @@ docker build -t leaf-classifier .
 docker run -p 8501:8501 leaf-classifier
 ```
 
-The image uses CPU-only PyTorch to stay small.
+The image uses CPU-only PyTorch to stay small and downloads the weights at build time. The live demo runs on Streamlit Community Cloud, which uses `app/requirements.txt` (CPU-only PyTorch).
 
 ## Using the model in Python
 

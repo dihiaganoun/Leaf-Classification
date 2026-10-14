@@ -1,9 +1,17 @@
 """Streamlit web app: upload a leaf photo and classify its margin."""
 
+import sys
 import time
+from pathlib import Path
 
 import streamlit as st
 from PIL import Image
+
+try:
+    import leaf_classifier  # noqa: F401
+except ModuleNotFoundError:
+    # Package not pip-installed (e.g. on Streamlit Community Cloud): use the source tree
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from leaf_classifier import CLASS_NAMES, IMAGE_SIZE, load_model, predict
 from leaf_classifier.model import get_device

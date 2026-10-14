@@ -3,4 +3,5 @@ streamlit==1.50.0
 torch==2.9.1
 torchvision==0.24.1
 pillow==11.3.0
+huggingface_hub==1.24.0
 -e .
