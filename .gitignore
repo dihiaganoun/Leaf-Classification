@@ -21,3 +21,7 @@ data/
 
 # Local copy of the weights (hosted on Hugging Face Hub)
 models/*.pth
+models/*.npz
+
+# Cached feature vectors (scripts/fit_leaf_detector.py)
+.cache/

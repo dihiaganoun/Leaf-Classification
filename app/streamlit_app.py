@@ -15,8 +15,15 @@ except ModuleNotFoundError:
     # Package not pip-installed (e.g. on Streamlit Community Cloud): use the source tree
     sys.path.insert(0, str(APP_DIR.parent / "src"))
 
-from leaf_classifier import CLASS_NAMES, load_model, predict
-from specimen import MARGINS, accession_number, determination_label, margin_drawing
+from leaf_classifier import CLASS_NAMES, load_model
+from leaf_classifier.ood import LeafDetector, analyze
+from specimen import (
+    MARGINS,
+    accession_number,
+    determination_label,
+    margin_drawing,
+    rejection_label,
+)
 
 HIGH_CONFIDENCE = 0.9
 LOW_CONFIDENCE = 0.7
@@ -38,13 +45,13 @@ def render_html(html: str) -> None:
 
 @st.cache_resource(show_spinner="Chargement du modèle…")
 def get_model():
-    return load_model()
+    return load_model(), LeafDetector.load()
 
 
 render_html(f"<style>{(APP_DIR / 'style.css').read_text(encoding='utf-8')}</style>")
 
 try:
-    model = get_model()
+    model, detector = get_model()
 except (FileNotFoundError, RuntimeError, OSError) as err:
     st.error(f"Le modèle n'a pas pu être chargé : {err}")
     st.stop()
@@ -87,7 +94,7 @@ else:
 
     with st.spinner("Examen du bord de la feuille…"):
         start = time.perf_counter()
-        probs = predict(model, image)
+        result = analyze(model, detector, image)
         elapsed = time.perf_counter() - start
 
     col_specimen, col_label = st.columns([1, 1.2], gap="large")
@@ -98,11 +105,15 @@ else:
             f"{image.width}×{image.height} px</div>"
         )
     with col_label:
-        render_html(
-            determination_label(
-                probs, accession_number(data), elapsed, HIGH_CONFIDENCE, LOW_CONFIDENCE
+        if result.is_leaf:
+            label = determination_label(
+                result.probs, accession_number(data), elapsed, HIGH_CONFIDENCE, LOW_CONFIDENCE
             )
-        )
+        else:
+            label = rejection_label(
+                result.rejection, result.distance, detector.threshold, accession_number(data)
+            )
+        render_html(label)
 
 render_html(
     f"""

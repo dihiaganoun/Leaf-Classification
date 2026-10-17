@@ -91,6 +91,51 @@ def stamp_text(confidence: float, high: float, low: float) -> str:
     return "À vérifier"
 
 
+REJECTIONS = {
+    "not_leaf": (
+        "Pas une feuille",
+        "Cette image ne ressemble pas aux feuilles que le modèle connaît. "
+        "Envoyez la photo d'une seule feuille, à plat sur un fond uni.",
+    ),
+    "blank": (
+        "Image vide",
+        "L'image est presque uniforme : il n'y a rien à examiner. "
+        "Envoyez la photo d'une feuille.",
+    ),
+}
+
+
+def rejection_label(reason: str, distance: float, threshold: float, accession: str) -> str:
+    """HTML of the label shown when the image is not accepted as a leaf."""
+    title, message = REJECTIONS[reason]
+    gap = (
+        f"<dt>Écart</dt><dd>{f'{distance:.1f}'.replace('.', ',')} "
+        f"(limite {f'{threshold:.1f}'.replace('.', ',')})</dd>"
+        if reason == "not_leaf"
+        else ""
+    )
+    return f"""
+    <div class="label-card label-rejected">
+        <div class="label-head">
+            <span>Herbier numérique</span>
+            <span>N° {accession}</span>
+        </div>
+        <div class="label-text">
+            <div class="label-latin">{title}</div>
+            <p class="label-common">{message}</p>
+            <dl class="label-fields">
+                <dt>Det.</dt><dd>ResNeXt-101 affiné</dd>
+                <dt>Date</dt><dd>{herbarium_date()}</dd>
+                {gap}
+            </dl>
+        </div>
+        <div class="stamp stamp-doubt">
+            <span class="stamp-word">Refusé</span>
+        </div>
+    </div>
+    """
+
+
 def determination_label(
     probs: dict[str, float],
     accession: str,

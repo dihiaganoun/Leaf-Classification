@@ -130,7 +130,7 @@ html, body, .stApp, .stMarkdown, p, label, li {
     font-size: 0.85rem;
     color: var(--ink-muted);
     margin-top: 0.7rem;
-    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 /* ---------- Determination label ---------- */
@@ -180,6 +180,10 @@ html, body, .stApp, .stMarkdown, p, label, li {
 .prob-fill { display: block; height: 100%; }
 .prob-value { text-align: right; }
 .label-doubt { font-size: 0.88rem; margin: 0.9rem 0 0; color: #8E2F2F; }
+
+.label-rejected .label-text { padding: 1rem 0 0.2rem; }
+.label-rejected .label-latin { color: #8E2F2F; }
+.label-rejected .label-common { line-height: 1.5; margin-bottom: 1rem; }
 
 /* The signature: the violet determination stamp */
 .stamp {

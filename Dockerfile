@@ -17,8 +17,8 @@ COPY --chown=user pyproject.toml README.md LICENSE requirements.txt ./
 COPY --chown=user src ./src
 RUN pip install --user -r requirements.txt
 
-# Download the weights at build time so the app starts without waiting
-RUN python -c "from leaf_classifier.model import resolve_weights; print(resolve_weights())"
+# Download the weights and leaf detector at build time so the app starts without waiting
+RUN python -c "from leaf_classifier.model import resolve_weights; from leaf_classifier.ood import LeafDetector; print(resolve_weights()); LeafDetector.load()"
 
 COPY --chown=user .streamlit ./.streamlit
 COPY --chown=user app ./app
