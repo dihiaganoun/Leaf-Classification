@@ -94,7 +94,7 @@ def stamp_text(confidence: float, high: float, low: float) -> str:
 REJECTIONS = {
     "not_leaf": (
         "Pas une feuille",
-        "Cette image ne ressemble pas aux feuilles que le modèle connaît. "
+        "Aucune feuille n'est reconnue sur cette image. "
         "Envoyez la photo d'une seule feuille, à plat sur un fond uni.",
     ),
     "blank": (
@@ -104,14 +104,18 @@ REJECTIONS = {
     ),
 }
 
+OUT_OF_DOMAIN_NOTE = (
+    "Cette photo ne ressemble pas aux planches d'herbier sur lesquelles le modèle "
+    "a été entraîné : le résultat est indicatif."
+)
 
-def rejection_label(reason: str, distance: float, threshold: float, accession: str) -> str:
+
+def rejection_label(reason: str, accession: str, leaf_score: float | None = None) -> str:
     """HTML of the label shown when the image is not accepted as a leaf."""
     title, message = REJECTIONS[reason]
-    gap = (
-        f"<dt>Écart</dt><dd>{f'{distance:.1f}'.replace('.', ',')} "
-        f"(limite {f'{threshold:.1f}'.replace('.', ',')})</dd>"
-        if reason == "not_leaf"
+    score = (
+        f"<dt>Feuille</dt><dd>{fr_percent(leaf_score)} selon CLIP</dd>"
+        if reason == "not_leaf" and leaf_score is not None
         else ""
     )
     return f"""
@@ -126,7 +130,7 @@ def rejection_label(reason: str, distance: float, threshold: float, accession: s
             <dl class="label-fields">
                 <dt>Det.</dt><dd>ResNeXt-101 affiné</dd>
                 <dt>Date</dt><dd>{herbarium_date()}</dd>
-                {gap}
+                {score}
             </dl>
         </div>
         <div class="stamp stamp-doubt">
@@ -142,11 +146,18 @@ def determination_label(
     elapsed_s: float,
     high: float,
     low: float,
+    in_domain: bool = True,
 ) -> str:
-    """HTML of the herbarium label holding the prediction."""
+    """HTML of the herbarium label holding the prediction.
+
+    in_domain=False (the photo does not look like the training herbarium
+    scans) stamps the result as indicative instead of determined.
+    """
     pred = max(probs, key=probs.get)
     confidence = probs[pred]
     info = MARGINS[pred]
+    stamp_word = stamp_text(confidence, high, low) if in_domain else "Indicatif"
+    stamp_class = "stamp-doubt" if confidence < low else ("" if in_domain else "stamp-indicative")
 
     rows = "".join(
         f'<div class="prob-row">'
@@ -157,12 +168,12 @@ def determination_label(
         f"</div>"
         for name, p in probs.items()
     )
-    doubt = (
-        '<p class="label-doubt">Le modèle hésite. Reprenez une photo nette, '
-        "une seule feuille sur fond uni.</p>"
-        if confidence < low
-        else ""
-    )
+    notes = []
+    if not in_domain:
+        notes.append(OUT_OF_DOMAIN_NOTE)
+    if confidence < low:
+        notes.append("Le modèle hésite. Reprenez une photo nette, une seule feuille sur fond uni.")
+    doubt = "".join(f'<p class="label-doubt">{note}</p>' for note in notes)
     return f"""
     <div class="label-card">
         <div class="label-head">
@@ -183,8 +194,8 @@ def determination_label(
         </div>
         <div class="label-probs">{rows}</div>
         {doubt}
-        <div class="stamp {'stamp-doubt' if confidence < low else ''}">
-            <span class="stamp-word">{stamp_text(confidence, high, low)}</span>
+        <div class="stamp {stamp_class}">
+            <span class="stamp-word">{stamp_word}</span>
             <span class="stamp-value">{fr_percent(confidence)}</span>
         </div>
     </div>

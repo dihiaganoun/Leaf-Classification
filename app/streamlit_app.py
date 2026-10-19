@@ -39,6 +39,7 @@ except ModuleNotFoundError:
 
 import leaf_classifier
 from leaf_classifier import CLASS_NAMES, load_model
+from leaf_classifier.leaf_gate import ClipLeafGate
 from leaf_classifier.model import to_rgb
 from leaf_classifier.ood import LeafDetector, analyze
 from specimen import (
@@ -75,15 +76,15 @@ def package_version() -> str:
     return digest.hexdigest()
 
 
-@st.cache_resource(show_spinner="Chargement du modèle…")
-def get_model(version: str):  # noqa: ARG001 - only part of the cache key
-    return load_model(), LeafDetector.load()
+@st.cache_resource(show_spinner="Chargement des modèles…")
+def get_models(version: str):  # noqa: ARG001 - only part of the cache key
+    return load_model(), LeafDetector.load(), ClipLeafGate.load()
 
 
 render_html(f"<style>{(APP_DIR / 'style.css').read_text(encoding='utf-8')}</style>")
 
 try:
-    model, detector = get_model(package_version())
+    model, detector, gate = get_models(package_version())
 except (FileNotFoundError, RuntimeError, OSError) as err:
     st.error(f"Le modèle n'a pas pu être chargé : {err}")
     st.stop()
@@ -126,7 +127,7 @@ else:
 
     with st.spinner("Examen du bord de la feuille…"):
         start = time.perf_counter()
-        result = analyze(model, detector, image)
+        result = analyze(model, detector, image, gate)
         elapsed = time.perf_counter() - start
 
     col_specimen, col_label = st.columns([1, 1.2], gap="large")
@@ -139,12 +140,15 @@ else:
     with col_label:
         if result.is_leaf:
             label = determination_label(
-                result.probs, accession_number(data), elapsed, HIGH_CONFIDENCE, LOW_CONFIDENCE
+                result.probs,
+                accession_number(data),
+                elapsed,
+                HIGH_CONFIDENCE,
+                LOW_CONFIDENCE,
+                in_domain=result.in_domain,
             )
         else:
-            label = rejection_label(
-                result.rejection, result.distance, detector.threshold, accession_number(data)
-            )
+            label = rejection_label(result.rejection, accession_number(data), result.leaf_score)
         render_html(label)
 
 render_html(

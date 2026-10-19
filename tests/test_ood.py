@@ -71,6 +71,45 @@ def test_analyze_accepts_and_rejects_by_threshold(tiny_resnet):
     assert analyze(tiny_resnet, detector, leaf_like_image()).rejection == "not_leaf"
 
 
+class FakeGate:
+    def __init__(self, score, threshold=0.2):
+        self.score, self.threshold = score, threshold
+
+    def leaf_score(self, image):
+        return self.score
+
+
+def test_gate_decides_when_given(tiny_resnet):
+    detector = LeafDetector(np.zeros((2, 512)), np.eye(512), threshold=np.inf)
+    accepted = analyze(tiny_resnet, detector, leaf_like_image(), FakeGate(0.9))
+    assert accepted.is_leaf and accepted.leaf_score == 0.9 and accepted.in_domain
+
+    rejected = analyze(tiny_resnet, detector, leaf_like_image(), FakeGate(0.05))
+    assert rejected.rejection == "not_leaf"
+
+
+def test_out_of_domain_leaf_is_accepted_but_flagged(tiny_resnet):
+    detector = LeafDetector(np.zeros((2, 512)), np.eye(512), threshold=0.0)
+    result = analyze(tiny_resnet, detector, leaf_like_image(), FakeGate(0.9))
+    assert result.is_leaf
+    assert not result.in_domain
+
+
+def test_clip_gate_score_from_prompt_similarity():
+    from leaf_classifier.leaf_gate import LEAF_PROMPTS, OTHER_PROMPTS, ClipLeafGate
+
+    n_prompts = len(LEAF_PROMPTS) + len(OTHER_PROMPTS)
+    text = torch.eye(n_prompts)  # one orthogonal unit vector per prompt
+
+    def gate_seeing(prompt_index):
+        visual = lambda x: text[prompt_index].unsqueeze(0)  # noqa: E731
+        return ClipLeafGate(visual, lambda image: torch.zeros(3, 2, 2), text, logit_scale=100.0)
+
+    assert gate_seeing(0).leaf_score(leaf_like_image()) > 0.99  # matches a leaf prompt
+    assert gate_seeing(len(LEAF_PROMPTS)).leaf_score(leaf_like_image()) < 0.01  # matches "food"
+    assert not gate_seeing(len(LEAF_PROMPTS)).is_leaf(leaf_like_image())
+
+
 def test_analyze_rejects_blank_image(tiny_resnet):
     detector = LeafDetector(np.zeros((2, 512)), np.eye(512), threshold=np.inf)
     result = analyze(tiny_resnet, detector, Image.new("RGB", (100, 100), (216, 162, 130)))

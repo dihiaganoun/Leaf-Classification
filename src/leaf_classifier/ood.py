@@ -90,7 +90,9 @@ MIN_PIXEL_STD = 5.0
 @dataclass
 class Analysis:
     probs: dict[str, float]
-    distance: float
+    distance: float  # Mahalanobis distance to the training leaves
+    in_domain: bool  # looks like the training herbarium scans
+    leaf_score: float | None  # CLIP probability that the image is a leaf (None without gate)
     rejection: str | None  # None, "blank" or "not_leaf"
 
     @property
@@ -98,17 +100,31 @@ class Analysis:
         return self.rejection is None
 
 
-def analyze(model: nn.Module, detector: LeafDetector, image: Image.Image) -> Analysis:
-    """Classify the image and check that it looks like a leaf from the training data."""
+def analyze(model: nn.Module, detector: LeafDetector, image: Image.Image, gate=None) -> Analysis:
+    """Classify the image and decide whether the answer can be trusted.
+
+    With a CLIP gate (leaf_gate.ClipLeafGate), CLIP decides whether the image
+    is a leaf and the Mahalanobis detector only reports whether it looks like
+    the training herbarium scans. Without one, the detector decides alone.
+    """
     device = next(model.parameters()).device
     features, logits = forward_features(model, preprocess(image).to(device))
     probs = F.softmax(logits, dim=1)[0].cpu().tolist()
     distance = float(detector.distance(features.cpu().numpy())[0])
+    in_domain = distance <= detector.threshold
+    leaf_score = None
 
     if ImageStat.Stat(to_rgb(image).convert("L")).stddev[0] < MIN_PIXEL_STD:
         rejection = "blank"
-    elif distance > detector.threshold:
-        rejection = "not_leaf"
+    elif gate is not None:
+        leaf_score = gate.leaf_score(image)
+        rejection = None if leaf_score >= gate.threshold else "not_leaf"
     else:
-        rejection = None
-    return Analysis(probs=dict(zip(CLASS_NAMES, probs)), distance=distance, rejection=rejection)
+        rejection = None if in_domain else "not_leaf"
+    return Analysis(
+        probs=dict(zip(CLASS_NAMES, probs)),
+        distance=distance,
+        in_domain=in_domain,
+        leaf_score=leaf_score,
+        rejection=rejection,
+    )
