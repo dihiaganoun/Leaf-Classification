@@ -77,9 +77,18 @@ def load_model(path: str | Path | None = None, device: torch.device | None = Non
     return model.to(device).eval()
 
 
+def to_rgb(image: Image.Image) -> Image.Image:
+    """RGB copy of the image; transparent areas become white instead of black."""
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
+        rgba = image.convert("RGBA")
+        background = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        return Image.alpha_composite(background, rgba).convert("RGB")
+    return image.convert("RGB")
+
+
 def preprocess(image: Image.Image) -> torch.Tensor:
     """PIL image -> normalized tensor of shape (1, 3, IMAGE_SIZE, IMAGE_SIZE)."""
-    return TRANSFORM(image.convert("RGB")).unsqueeze(0)
+    return TRANSFORM(to_rgb(image)).unsqueeze(0)
 
 
 @torch.no_grad()

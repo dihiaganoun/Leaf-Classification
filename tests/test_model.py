@@ -7,6 +7,7 @@ from PIL import Image
 
 from leaf_classifier import CLASS_NAMES, IMAGE_SIZE, NUM_CLASSES, load_model, predict, preprocess
 from leaf_classifier import model as model_module
+from leaf_classifier.model import to_rgb
 from leaf_classifier.config import HF_REPO_ID, WEIGHTS_FILENAME
 from leaf_classifier.data import stratified_split
 
@@ -32,6 +33,15 @@ def test_preprocess_shape(size):
 def test_preprocess_converts_grayscale_and_rgba():
     for mode in ("L", "RGBA"):
         assert preprocess(Image.new(mode, (100, 100))).shape[1] == 3
+
+
+def test_transparent_areas_become_white():
+    image = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+    image.putpixel((5, 5), (20, 120, 40, 255))
+    rgb = to_rgb(image)
+    assert rgb.mode == "RGB"
+    assert rgb.getpixel((0, 0)) == (255, 255, 255)
+    assert rgb.getpixel((5, 5)) == (20, 120, 40)
 
 
 def test_predict_returns_probabilities_for_each_class():

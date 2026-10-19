@@ -19,7 +19,7 @@ from huggingface_hub import hf_hub_download
 from PIL import Image, ImageStat
 
 from leaf_classifier.config import CLASS_NAMES, HF_REPO_ID, PROJECT_ROOT
-from leaf_classifier.model import preprocess
+from leaf_classifier.model import preprocess, to_rgb
 
 OOD_FILENAME = "ood_stats.npz"
 DEFAULT_OOD_PATH = PROJECT_ROOT / "models" / OOD_FILENAME
@@ -105,7 +105,7 @@ def analyze(model: nn.Module, detector: LeafDetector, image: Image.Image) -> Ana
     probs = F.softmax(logits, dim=1)[0].cpu().tolist()
     distance = float(detector.distance(features.cpu().numpy())[0])
 
-    if ImageStat.Stat(image.convert("L")).stddev[0] < MIN_PIXEL_STD:
+    if ImageStat.Stat(to_rgb(image).convert("L")).stddev[0] < MIN_PIXEL_STD:
         rejection = "blank"
     elif distance > detector.threshold:
         rejection = "not_leaf"
